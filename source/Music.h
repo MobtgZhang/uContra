@@ -14,8 +14,8 @@ class Music{
 private:
     std::vector<Mix_Music*> vMusic;
     std::vector<Mix_Chunk*> vChunk;
-    int iVolume;
-    bool musicStopped;
+    int iVolume = 100;
+    bool audioReady = false;
 public:
     Music();
     ~Music();
@@ -65,13 +65,14 @@ public:
         mGAMEOVER
     };
 
-    eMusic currentMusic;
+    eMusic currentMusic = mNOTHING;
 
 
     void changeMusic();
     // 播放音乐
     void PlayMusic();
-    void PlayMusic(eMusic musicID,int loops=-1);
+    bool PlayMusic(eMusic musicID,int loops=-1);
+    bool IsMusicPlaying() const;
     void StopMusic();
     
 

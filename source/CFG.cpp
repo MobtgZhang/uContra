@@ -15,25 +15,40 @@ int CCFG::keyIDRight = 0;
 
 bool CCFG::canMoveBackward = true;
 // 一些类的定义
-MenuManager* CCFG::oMM = new MenuManager();
-CImg* CCFG::tLogo = new CImg();
-Text* CCFG::tText = new Text();
-Music* CCFG::oMusic = new Music();
+MenuManager* CCFG::oMM = nullptr;
+CImg* CCFG::tLogo = nullptr;
+Text* CCFG::tText = nullptr;
+Music* CCFG::oMusic = nullptr;
 
 Text* CCFG::getText(){
+    if (!tText) tText = new Text();
     return tText;
 }
 
 MenuManager* CCFG::getMM(){
+    if (!oMM) oMM = new MenuManager();
     return oMM;
 }
 
 CImg* CCFG::getLogo(){
+    if (!tLogo) tLogo = new CImg();
     return tLogo;
 }
 
 Music* CCFG::getMusic(){
+    if (!oMusic) oMusic = new Music();
     return oMusic;
+}
+
+void CCFG::Release() {
+    delete oMM;
+    delete tLogo;
+    delete tText;
+    delete oMusic;
+    oMM = nullptr;
+    tLogo = nullptr;
+    tText = nullptr;
+    oMusic = nullptr;
 }
 
 std::string CCFG::getKeyString(int keyID) {

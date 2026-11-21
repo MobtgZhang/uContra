@@ -27,7 +27,7 @@ public:
         iRIGHT_ITEM
     };
     Menu();
-    ~Menu();
+    virtual ~Menu();
 
     virtual void Update();
     virtual void Draw(SDL_Renderer* rR);

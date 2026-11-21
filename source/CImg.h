@@ -6,8 +6,8 @@
 
 class CImg{
 private:
-    SDL_Texture* tImg;
-    SDL_Rect rRect;
+    SDL_Texture* tImg = nullptr;
+    SDL_Rect rRect{};
 public:
     CImg();
     CImg(std::string fileName,SDL_Renderer* rR);

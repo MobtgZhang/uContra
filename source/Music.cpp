@@ -1,8 +1,13 @@
 # include "Music.h"
+# include <SDL2/SDL_log.h>
 
 Music::Music(){
     //初始化SDL2音效
-    Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
+    audioReady = Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == 0;
+    if (!audioReady) {
+        SDL_Log("Audio disabled: %s", Mix_GetError());
+        return;
+    }
     //加载Music文件
 
     vMusic.push_back(loadMusic("01 Contra (Title)"));
@@ -66,6 +71,9 @@ Mix_Chunk* Music::loadChunk(std::string fileName){
 }
 
 Music::~Music(){
+    if (!audioReady) return;
+    Mix_HaltMusic();
+    Mix_HaltChannel(-1);
     for(unsigned int k=0;k<vMusic.size();k++){
         Mix_FreeMusic(vMusic[k]);
     }
@@ -75,11 +83,12 @@ Music::~Music(){
         Mix_FreeChunk(vChunk[k]);
     }
     vChunk.clear();
+    Mix_CloseAudio();
 }
 
 void Music::setVolume(int iVolume){
     this->iVolume = iVolume;
-    Mix_VolumeMusic(iVolume);
+    if (audioReady) Mix_VolumeMusic(iVolume);
 }
 
 int Music::getVolume(){
@@ -87,24 +96,22 @@ int Music::getVolume(){
 }
 
 void Music::PlayMusic(){
-    if(currentMusic!=mNOTHING){
-        Mix_PlayMusic(vMusic[currentMusic-1],-1);
-        musicStopped = false;
-    }else{
-        StopMusic();
-    }
+    PlayMusic(currentMusic);
 }
 
 
-void Music::PlayMusic(eMusic musicID,int loops){
-    if(musicID!=mNOTHING){
-        Mix_PlayMusic(vMusic[musicID-1],loops);
-        musicStopped = false;
+bool Music::PlayMusic(eMusic musicID,int loops){
+    if (audioReady && musicID != mNOTHING && vMusic[musicID - 1] &&
+        Mix_PlayMusic(vMusic[musicID - 1], loops) == 0) {
         currentMusic = musicID;
-    }else{
-        StopMusic();
-        currentMusic = mNOTHING;
+        return true;
     }
+    StopMusic();
+    return false;
+}
+
+bool Music::IsMusicPlaying() const {
+    return audioReady && Mix_PlayingMusic();
 }
 
 void Music::changeMusic(){
@@ -112,25 +119,22 @@ void Music::changeMusic(){
 }
 
 void Music::PauseMusic(){
-    //printf("Value is%d\n",Mix_PausedMusic());
+    if (!audioReady) return;
     if(Mix_PausedMusic()){
         Mix_ResumeMusic();
-        musicStopped = false;
     }else{
         Mix_PauseMusic();
-        musicStopped = true;
     }
 }
 
 
 void Music::StopMusic(){
-    if(!musicStopped){
-        Mix_HaltMusic();
-        musicStopped = true;
-    }
+    if (audioReady) Mix_HaltMusic();
+    currentMusic = mNOTHING;
 }
 
 void Music::PlayChunk(eChunk chunkID){
+    if (!audioReady || !vChunk[chunkID]) return;
     Mix_VolumeChunk(vChunk[chunkID],iVolume);
     Mix_PlayChannel(-1,vChunk[chunkID],0);
 }

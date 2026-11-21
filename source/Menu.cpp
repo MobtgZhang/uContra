@@ -10,7 +10,7 @@ Menu::Menu(){
 }
 
 Menu::~Menu(){
-
+    for (auto* option : lMO) delete option;
 }
 
 

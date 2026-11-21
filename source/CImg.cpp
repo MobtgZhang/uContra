@@ -41,10 +41,12 @@ void CImg::Draw(SDL_Renderer* rR,SDL_Rect rCrop,SDL_Rect rRect){
 void CImg::setImg(std::string fileName,SDL_Renderer* rR,int cr,int cg,int cb){
     fileName = "files/images/" + fileName + ".bmp";
 	SDL_Surface* loadedSurface = SDL_LoadBMP(fileName.c_str());
+    if (!loadedSurface) return;
     SDL_SetColorKey(loadedSurface,SDL_TRUE,SDL_MapRGB(loadedSurface->format,cr,cg,cb));
 
+    SDL_DestroyTexture(tImg);
     tImg = SDL_CreateTextureFromSurface(rR,loadedSurface);
-    int iWidth,iHeight;
+    int iWidth = 0, iHeight = 0;
 
     SDL_QueryTexture(tImg,NULL,NULL,&iWidth,&iHeight);
 

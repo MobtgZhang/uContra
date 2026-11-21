@@ -21,6 +21,7 @@ public:
     static Text* getText();
     // 获取背景音乐
     static Music* getMusic();
+    static void Release();
     // 设置窗口大小
     static int GAME_HEIGHT,GAME_WIDTH;
     // 控制方向键

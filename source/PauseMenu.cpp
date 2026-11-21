@@ -65,7 +65,6 @@ void PauseMenu::enter(){
         case 2:
             //Application::getMap()->resetGameData();
 			CCFG::getMM()->setGameState(CCFG::getMM()->eMainMenu);
-            CCFG::getMM()->getMainMenu()->setTwinkle(false);
             CCFG::getMusic()->StopMusic();
 			break;
         case 3:

@@ -34,6 +34,7 @@ public:
     void escape();
     void enter();
     void setKey(int keyID);
+    bool IsBindingKey() const { return inSetKey; }
     void setEscapeToMainMenu(bool escapeToMainMenu);
     void updateVolumeRect();
 

@@ -2,36 +2,24 @@
 # ifndef MAINMENU_H
 # define MAINMENU_H
 
-# include"CImg.h"
-# include"Menu.h"
+# include"LoadingMenu.h"
 
 class MainMenu:public Menu{
 private:
-    bool selectLevel;
-    int activeLevelID;
-    SDL_Rect rSelectLevel;
-
-    unsigned int twinkleTime;
-    unsigned int iTime;
-    //设置菜单按钮是否闪烁
-    bool twinkle;
+    enum TitleOption { Start, Options, About };
+    enum class Phase { Title, SelectLevel, ConfirmLevel };
+    Phase phase = Phase::Title;
+    LoadingMenu::OpeningCue openingCue{0, false};
+    int activeLevelID = 0;
+    SDL_Rect rSelectLevel{220, 275, 306, 72};
 public:
-    enum MainMenuState{
-        mainSTART,
-        mainOPTIONS,
-        mainABOUT,
-    };
     MainMenu();
-    ~MainMenu();
 
     void escape();
     void enter();
-    void Draw(SDL_Renderer* rR);
-    void Update();
-    void updateActiveButton(int iDir);
-    //设置菜单选项图标是否闪烁
-    void setTwinkle(bool twinkle);
-    void updateTime();
+    void Draw(SDL_Renderer* rR) override;
+    void Update() override;
+    void updateActiveButton(int iDir) override;
 };
 
 # endif

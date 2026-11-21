@@ -1,5 +1,6 @@
 # include "MenuManager.h"
 # include "Application.h"
+# include "CFG.h"
 
 MenuManager::MenuManager(){
     this->currentGameState = eMainMenu;
@@ -17,6 +18,7 @@ MenuManager::~MenuManager(){
     delete oAboutMenu;
     delete oPauseMenu;
     delete oLoadingMenu;
+    delete activeOption;
 }
 
 MenuManager::gameState MenuManager::getGameState(){
@@ -28,6 +30,7 @@ void MenuManager::setGameState(gameState state){
 
 
 void MenuManager::setBackgroundColor(SDL_Renderer* rR){
+    SDL_SetRenderDrawColor(rR, 0, 0, 0, 255);
     switch (currentGameState){
         case eMainMenu:
             SDL_SetRenderDrawColor(rR,0,0,0,255);
@@ -36,9 +39,6 @@ void MenuManager::setBackgroundColor(SDL_Renderer* rR){
 			SDL_SetRenderDrawColor(rR, 0, 0, 0, 255);
 			break;
 		case eGame:
-			break;
-		case eAbout:
-			oAboutMenu->setBackgroundColor(rR);
 			break;
         default:
             break;
@@ -57,6 +57,7 @@ void MenuManager::Draw(SDL_Renderer* rR){
             oAboutMenu->Draw(rR);
             break;
         case ePause:
+            Application::getMap()->Draw(rR);
             oPauseMenu->Draw(rR);
             break;
         case eGameLoading:
@@ -74,6 +75,7 @@ void MenuManager::Update(){
     switch (currentGameState){
         case eMainMenu:
 			oMainMenu->Update();
+            break;
         case eOptions:
             oOptionsMenu->Update();
             break;
@@ -86,8 +88,25 @@ void MenuManager::Update(){
         case eGameLoading:
             oLoadingMenu->Update();
             break;
-        case eGame:
+        case eGame: {
+            auto* map = Application::getMap();
+            map->Update();
+            LoadingMenu::Mode next;
+            switch (map->GetResult()) {
+                case Map::Result::Cleared:
+                    map->NextStage();
+                    next = map->GetResult() == Map::Result::MissingAssets ?
+                        LoadingMenu::Mode::MissingAssets : LoadingMenu::Mode::Stage;
+                    break;
+                case Map::Result::Lost: next = LoadingMenu::Mode::GameOver; break;
+                case Map::Result::Finished: next = LoadingMenu::Mode::Ending; break;
+                case Map::Result::MissingAssets: next = LoadingMenu::Mode::MissingAssets; break;
+                case Map::Result::Playing: return;
+            }
+            oLoadingMenu->Begin(next);
+            setGameState(eGameLoading);
             break;
+        }
         default:
             break;
     }
@@ -98,6 +117,7 @@ CImg* MenuManager::getActiveOption(){
 }
 
 void MenuManager::setActiveOption(SDL_Renderer* rR) {
+	delete activeOption;
 	activeOption = new CImg("active_option", rR);
 }
 
@@ -148,7 +168,13 @@ void MenuManager::enter(){
 void MenuManager::escape() {
 	switch(currentGameState) {
 		case eGame:
-
+			resetGameState(ePause);
+			setGameState(ePause);
+			CCFG::getMusic()->PauseMusic();
+			CCFG::getMusic()->PlayChunk(Music::cPAUSE);
+			break;
+		case eGameLoading:
+			oLoadingMenu->escape();
 			break;
 		case eAbout:
 			oAboutMenu->enter();

@@ -5,21 +5,8 @@
 
 class Application{
 private:
-    SDL_Window* m_window;
-    SDL_Renderer* m_renderer;
-    SDL_Event* mainEvent;
-
-    // ----- FPS -----
-    long frameTime;
-    static const int MIN_FRAME_TIME = 16;
-    unsigned long lFPSTime;
-    int iNumOfFPS,iFPS;
-
-    // ----- INPUT KEYS -----
-    static bool keyLeftPressed,keyRightPressed;
-    static bool keyUp,keyDown,keyLeft,keyRight;
-    static bool keyA,keyB,keyX,keyY;
-    static bool keyMenuPressed;
+    SDL_Window* m_window = nullptr;
+    SDL_Renderer* m_renderer = nullptr;
 
     static Map* oMap;
 public:
@@ -30,7 +17,7 @@ public:
     void Update();
     void Input();
     //加载主菜单信息
-    void InputMenu();
+    void InputMenu(SDL_Keycode key);
     // 加载玩家信息
     void InputLayer();
     // 设置游戏退出

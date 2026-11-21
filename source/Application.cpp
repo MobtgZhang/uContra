@@ -1,257 +1,154 @@
-# include "Application.h"
-# include "CFG.h"
-# include <iostream>
+#include "Application.h"
+#include "CFG.h"
 
-Map* Application::oMap = new Map();
+#include <SDL2/SDL_image.h>
 
-// 是否一直按着向左或者向右按键
-bool Application::keyLeftPressed = false;
-bool Application::keyRightPressed = false;
-// 游戏控制键
-bool Application::keyUp = false;
-bool Application::keyDown = false;
-bool Application::keyLeft = false;
-bool Application::keyRight = false;
-bool Application::keyA = false;
-bool Application::keyB = false;
-bool Application::keyX = false;
-bool Application::keyY = false;
-//其他按键
-bool Application::keyMenuPressed = false;
-
-//游戏退出
+Map* Application::oMap = nullptr;
 bool Application::quitGame = false;
-//获取地图
-Map* Application::getMap(){
+
+Map* Application::getMap() {
     return oMap;
 }
 
-Application::Application(){
-    this->quitGame = false;
-    this->iFPS = 0;
-    this->iNumOfFPS = 0;
-    this->lFPSTime = 0;
-
-    //初始化SDL
-    SDL_Init(SDL_INIT_VIDEO| SDL_INIT_TIMER| SDL_INIT_AUDIO);
-    // 创建窗口
-    //创建窗口
-    m_window = SDL_CreateWindow("uContra",SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,
-                    CCFG::GAME_WIDTH,CCFG::GAME_HEIGHT,SDL_WINDOW_SHOWN);
-    if(m_window == NULL){
+Application::Application() {
+    quitGame = false;
+    SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
+        SDL_Log("Cannot initialize SDL: %s", SDL_GetError());
         quitGame = true;
-        std::cout<<"Error: "<<SDL_GetError()<<std::endl;
+        return;
     }
-    // 创建渲染
-    m_renderer = SDL_CreateRenderer(m_window,-1,SDL_RENDERER_ACCELERATED);
-    // 图标
-    std::string fileName = "files/images/ico.bmp";
-    SDL_Surface* loadedSurface = SDL_LoadBMP(fileName.c_str());
-    SDL_SetWindowIcon(m_window,loadedSurface);
-    SDL_FreeSurface(loadedSurface);
-    // 设置全局事件信息
-    mainEvent = new SDL_Event();
-    
-    // 加载地图文件
-
-    oMap = new Map(m_renderer);
-    // 显示界面，
-    CCFG::getMM()->setActiveOption(m_renderer);
-    CCFG::getLogo()->setImg("contra",m_renderer);
-    CCFG::getText()->setFont(m_renderer,"font");
-
-    // 加载并渲染主页面
-
-    //其他部分的初始化
-    this->keyLeft = this->keyRight = this->keyDown = this->keyUp = false;
-    this->keyA = this->keyB = this->keyX = this->keyY = false;
-
-    // 初始化按键配置
+    IMG_Init(IMG_INIT_PNG);
+    m_window = SDL_CreateWindow("uContra", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                CCFG::GAME_WIDTH, CCFG::GAME_HEIGHT, SDL_WINDOW_SHOWN);
+    if (m_window) {
+        m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+        if (!m_renderer) m_renderer = SDL_CreateRenderer(m_window, -1, SDL_RENDERER_SOFTWARE | SDL_RENDERER_TARGETTEXTURE);
+    }
+    if (!m_renderer) {
+        SDL_Log("Cannot open uContra window: %s", SDL_GetError());
+        quitGame = true;
+        return;
+    }
+    if (auto* icon = SDL_LoadBMP("files/images/ico.bmp")) {
+        SDL_SetWindowIcon(m_window, icon);
+        SDL_FreeSurface(icon);
+    }
     CCFG::keyIDA = SDLK_j;
     CCFG::keyIDB = SDLK_k;
     CCFG::keyIDX = SDLK_l;
     CCFG::keyIDY = SDLK_i;
-
     CCFG::keyIDRight = SDLK_d;
     CCFG::keyIDLeft = SDLK_a;
     CCFG::keyIDUp = SDLK_w;
     CCFG::keyIDDown = SDLK_s;
-
-    
+    oMap = new Map(m_renderer);
+    CCFG::getMM()->setActiveOption(m_renderer);
+    CCFG::getLogo()->setImg("contra", m_renderer);
+    CCFG::getText()->setFont(m_renderer, "font");
 }
-Application::~Application(){
-    delete mainEvent;
+
+Application::~Application() {
+    delete oMap;
+    oMap = nullptr;
+    CCFG::Release();
     SDL_DestroyRenderer(m_renderer);
     SDL_DestroyWindow(m_window);
+    IMG_Quit();
     SDL_Quit();
 }
-void Application::mainloop(){
-    lFPSTime = SDL_GetTicks();
-    while(!quitGame && mainEvent->type != SDL_QUIT){
-        frameTime = SDL_GetTicks();
-        SDL_PollEvent(mainEvent);
-        SDL_RenderClear(m_renderer);
 
-        //设置菜单管理的背景颜色
-        CCFG::getMM()->setBackgroundColor(m_renderer);
-        SDL_RenderFillRect(m_renderer,NULL);
-
-        //按键信息
+void Application::mainloop() {
+    const Uint64 frequency = SDL_GetPerformanceFrequency();
+    Uint64 previous = SDL_GetPerformanceCounter();
+    Uint64 accumulated = frequency;
+    while (!quitGame) {
+        const Uint64 now = SDL_GetPerformanceCounter();
+        accumulated += SDL_min((now - previous) * 60, frequency * 4);
+        previous = now;
         Input();
-        //绘制
-        Draw();
-        //更新
-        Update();
-        
-        //FPS 显示设置
-        CCFG::getText()->Draw(m_renderer, "FPS:" + std::to_string(iNumOfFPS), CCFG::GAME_WIDTH - CCFG::getText()->getTextWidth("FPS:" + std::to_string(iNumOfFPS), 8) - 8, 5, 8);
-        
-        if(SDL_GetTicks()-1000>=lFPSTime){
-            lFPSTime = SDL_GetTicks();
-            iNumOfFPS = iFPS;
-            iFPS = 0;
-        }
-        ++iFPS;
-
-
-        SDL_RenderPresent(m_renderer);
-        if(SDL_GetTicks() - frameTime<MIN_FRAME_TIME){
-            SDL_Delay(MIN_FRAME_TIME - (SDL_GetTicks() - frameTime));
+        if (quitGame) break;
+        if (accumulated >= frequency) {
+            do {
+                Update();
+                accumulated -= frequency;
+            } while (accumulated >= frequency);
+            Draw();
+            SDL_RenderPresent(m_renderer);
+        } else {
+            SDL_Delay(1);
         }
     }
 }
 
-//按键信息
-void Application::Input(){
-    switch(CCFG::getMM()->getGameState()){
-        case MenuManager::eGame:
-            InputLayer();
-            break;
-        default:
-            InputMenu();
-    }
-}
-//菜单输入
-void Application::InputMenu(){
-    if(mainEvent->type == SDL_KEYDOWN){
-        CCFG::getMM()->setKey(mainEvent->key.keysym.sym);
-        switch(mainEvent->key.keysym.sym){
-            //按下了向下的按键
-            case SDLK_s: case SDLK_DOWN:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->keyPressed(Menu::iDOWN_ITEM);
-                    keyMenuPressed = true;
-                }
-                break;
-            //按下的向上的按键
-            case SDLK_w: case SDLK_UP:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->keyPressed(Menu::iUP_ITEM);
-                    keyMenuPressed = true;
-                }
-                break;
-            //按下回车键
-            case SDLK_KP_ENTER: case SDLK_RETURN:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->enter();
-                    keyMenuPressed = true;
-                }
-                break;
-            //按下ESC按键
-            case SDLK_ESCAPE:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->escape();
-                    keyMenuPressed = true;
-                }
-                break;
-            //按下向左按键
-            case SDLK_LEFT: case SDLK_d:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->keyPressed(Menu::iLEFT_ITEM);
-                    keyMenuPressed = true;
-                }
-                break;
-            //按下向右按键
-            case SDLK_RIGHT: case SDLK_a:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->keyPressed(Menu::iRIGHT_ITEM);
-                    keyMenuPressed = true;
-                }
-                break;
-            default:
-                break;
+void Application::Input() {
+    auto* menu = CCFG::getMM();
+    SDL_Event event;
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
+            quitGame = true;
+        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST &&
+                   menu->getGameState() == MenuManager::eGame) {
+            menu->escape();
+        } else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
+            const SDL_Keycode key = event.key.keysym.sym;
+            if (menu->getGameState() == MenuManager::eGame) {
+                if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) menu->escape();
+            } else {
+                InputMenu(key);
+            }
         }
     }
-    if(mainEvent->type == SDL_KEYUP){
-        switch(mainEvent->key.keysym.sym) {
-			case SDLK_s: case SDLK_DOWN: case SDLK_w: case SDLK_UP: case SDLK_KP_ENTER: case SDLK_RETURN: case SDLK_ESCAPE: case SDLK_a: case SDLK_RIGHT: case SDLK_LEFT: case SDLK_d:
-				keyMenuPressed = false;
-				break;
-			default:
-				break;
-		}
+    if (menu->getGameState() == MenuManager::eGame) InputLayer();
+}
+
+void Application::InputMenu(SDL_Keycode key) {
+    auto* menu = CCFG::getMM();
+    if (menu->getGameState() == MenuManager::eOptions && menu->getOptionsMenu()->IsBindingKey()) {
+        menu->setKey(key);
+        return;
+    }
+    switch (key) {
+        case SDLK_s: case SDLK_DOWN: menu->keyPressed(Menu::iDOWN_ITEM); break;
+        case SDLK_w: case SDLK_UP: menu->keyPressed(Menu::iUP_ITEM); break;
+        case SDLK_a: case SDLK_LEFT: menu->keyPressed(Menu::iLEFT_ITEM); break;
+        case SDLK_d: case SDLK_RIGHT: menu->keyPressed(Menu::iRIGHT_ITEM); break;
+        case SDLK_RETURN: case SDLK_KP_ENTER: menu->enter(); break;
+        case SDLK_ESCAPE: menu->escape(); break;
+        default: break;
     }
 }
 
-//加载玩家信息
-
-void Application::InputLayer(){
-    if(mainEvent->type == SDL_WINDOWEVENT){
-        switch(mainEvent->window.event){
-            //当前窗口失去焦点信息时候，进入暂停界面，并且暂停音乐
-            case SDL_WINDOWEVENT_FOCUS_LOST:
-                CCFG::getMM()->resetGameState(CCFG::getMM()->ePause);
-                CCFG::getMM()->setGameState(CCFG::getMM()->ePause);
-                CCFG::getMusic()->PlayChunk(CCFG::getMusic()->cPAUSE);
-                CCFG::getMusic()->PauseMusic();
-                break;
-            default:
-                break;
-        }
-    }
-
-    if(mainEvent->type == SDL_KEYUP){
-        //回车键/ESC键抬起的时候，
-        switch(mainEvent->key.keysym.sym){
-            case SDLK_KP_ENTER: case SDLK_RETURN: case SDLK_ESCAPE:
-                keyMenuPressed = false;
-                break;
-            default:
-                break;
-        }
-    }
-
-    if(mainEvent->type == SDL_KEYDOWN){
-        switch(mainEvent->key.keysym.sym){
-            case SDLK_KP_ENTER: case SDLK_RETURN:
-                if(!keyMenuPressed){
-                    CCFG::getMM()->enter();
-                    keyMenuPressed = true;
-                }
-                break;
-            case SDLK_ESCAPE:
-                if(!keyMenuPressed && CCFG::getMM()->getGameState() == CCFG::getMM()->eGame){
-                    CCFG::getMM()->resetGameState(CCFG::getMM()->ePause);
-                    CCFG::getMM()->setGameState(CCFG::getMM()->ePause);
-                    CCFG::getMusic()->PlayChunk(CCFG::getMusic()->cPAUSE);
-                    CCFG::getMusic()->PauseMusic();
-                    keyMenuPressed = true;
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
+void Application::InputLayer() {
+    const Uint8* keys = SDL_GetKeyboardState(nullptr);
+    const auto held = [keys](SDL_Keycode key) {
+        const auto scancode = SDL_GetScancodeFromKey(key);
+        return scancode != SDL_SCANCODE_UNKNOWN && keys[scancode] != 0;
+    };
+    Player::Input first;
+    first.left = held(CCFG::keyIDLeft);
+    first.right = held(CCFG::keyIDRight);
+    first.up = held(CCFG::keyIDUp);
+    first.down = held(CCFG::keyIDDown);
+    first.jump = held(CCFG::keyIDA);
+    first.fire = held(CCFG::keyIDB);
+    Player::Input second;
+    second.left = held(SDLK_LEFT);
+    second.right = held(SDLK_RIGHT);
+    second.up = held(SDLK_UP);
+    second.down = held(SDLK_DOWN);
+    second.jump = held(SDLK_RCTRL);
+    second.fire = held(SDLK_RSHIFT);
+    oMap->SetInput(0, first);
+    oMap->SetInput(1, second);
 }
 
-
-//绘制
-void Application::Draw(){
-    CCFG::getMM()->Draw(m_renderer);
-}
-
-//更新
-void Application::Update(){
+void Application::Update() {
     CCFG::getMM()->Update();
+}
+
+void Application::Draw() {
+    CCFG::getMM()->setBackgroundColor(m_renderer);
+    SDL_RenderClear(m_renderer);
+    CCFG::getMM()->Draw(m_renderer);
 }

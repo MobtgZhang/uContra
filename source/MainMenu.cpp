@@ -1,157 +1,102 @@
-# include "MainMenu.h"
-# include "MenuOption.h"
-# include "CFG.h"
-# include "Application.h"
+#include "MainMenu.h"
+#include "Application.h"
+#include "CFG.h"
 
-# include<iostream>
-
-MainMenu::MainMenu(){
-    this->lMO.push_back(new MenuOption("START",256,288));
-    this->lMO.push_back(new MenuOption("OPTIONS",256,320));
-    this->lMO.push_back(new MenuOption("ABOUT",256,352));
-    
-    rSelectLevel.x = 122;
-	rSelectLevel.y = 280;
-	rSelectLevel.w = 306;
-	rSelectLevel.h = 72;
-    
-    this->numOfMenuOptions = lMO.size();
-    this->activeMenuOption = mainSTART;
-    this->selectLevel = false;
-    this->activeLevelID = 0;
-    this->iTime = SDL_GetTicks();
-    this->twinkleTime = SDL_GetTicks();
-    //设置菜单是否闪烁
-    this->twinkle = false;
+namespace {
+constexpr Uint32 flashHalfPeriod = 250;
+constexpr Uint32 confirmationDuration = 3 * 2 * flashHalfPeriod;
 }
 
-MainMenu::~MainMenu(){
-
+MainMenu::MainMenu() {
+    lMO.push_back(new MenuOption("START", 256, 288));
+    lMO.push_back(new MenuOption("OPTIONS", 256, 320));
+    lMO.push_back(new MenuOption("ABOUT", 256, 352));
+    numOfMenuOptions = lMO.size();
 }
 
-void MainMenu::setTwinkle(bool twinkle){
-    Menu::setTwinkle(twinkle);
-    this->twinkle = twinkle;    
-}
-
-void MainMenu::Draw(SDL_Renderer* rR){
-    CCFG::getLogo()->Draw(rR,160,0);
-    Menu::Draw(rR);
-    
-	CCFG::getText()->Draw(rR, "AUTHOR:MOBTGZHANG", 5, CCFG::GAME_HEIGHT - 16, 8, 255, 255, 255);
-    if(selectLevel){
-        SDL_SetRenderDrawBlendMode(rR,SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(rR,4,4,4,235);
-        SDL_RenderFillRect(rR, &rSelectLevel);
-		SDL_SetRenderDrawColor(rR, 255, 255, 255, 255);
-        rSelectLevel.x += 1;
-		rSelectLevel.y += 1;
-		rSelectLevel.h -= 2;
-		rSelectLevel.w -= 2;
-		SDL_RenderDrawRect(rR, &rSelectLevel);
-		rSelectLevel.x -= 1;
-		rSelectLevel.y -= 1;
-		rSelectLevel.h += 2;
-		rSelectLevel.w += 2;
-
-        CCFG::getText()->Draw(rR, "SELECT LEVEL", rSelectLevel.x + rSelectLevel.w/2 - CCFG::getText()->getTextWidth("SELECT LEVEL")/2, rSelectLevel.y + 16, 16, 255, 255, 255);
-        for(int i = 0, extraX = 0; i < 8; i++) {
-			if(i == activeLevelID) {
-				CCFG::getText()->Draw(rR, std::to_string(i + 1) , rSelectLevel.x + 16*(i + 1) + 16*i + extraX, rSelectLevel.y + 16 + 24, 16, 255, 255, 255);
-			} else {
-				CCFG::getText()->Draw(rR, std::to_string(i + 1), rSelectLevel.x + 16*(i + 1) + 16*i + extraX, rSelectLevel.y + 16 + 24, 16, 90, 90, 90);
-			}
-		}
-
-		SDL_SetRenderDrawBlendMode(rR, SDL_BLENDMODE_NONE);
-		//Application::getMap()->setBackgroundColor(rR);
+void MainMenu::Draw(SDL_Renderer* display) {
+    CCFG::getLogo()->Draw(display, 160, 0);
+    CCFG::getText()->Draw(display, "AUTHOR:MOBTGZHANG", 5, CCFG::GAME_HEIGHT - 16, 8);
+    if (phase == Phase::Title) {
+        Menu::Draw(display);
+        return;
+    }
+    SDL_SetRenderDrawColor(display, 4, 4, 4, 255);
+    SDL_RenderFillRect(display, &rSelectLevel);
+    SDL_SetRenderDrawColor(display, 255, 255, 255, 255);
+    SDL_RenderDrawRect(display, &rSelectLevel);
+    const std::string label = "SELECT LEVEL";
+    auto* text = CCFG::getText();
+    text->Draw(display, label, rSelectLevel.x + (rSelectLevel.w - text->getTextWidth(label)) / 2, rSelectLevel.y + 16);
+    const bool showSelected = phase != Phase::ConfirmLevel ||
+        ((SDL_GetTicks() - openingCue.startedAt) / flashHalfPeriod) % 2 != 0;
+    for (int index = 0; index < Map::StageCount; ++index) {
+        const bool selected = index == activeLevelID;
+        if (selected && !showSelected) continue;
+        const int color = selected ? 255 : 105;
+        text->Draw(display, std::to_string(index + 1), rSelectLevel.x + 32 + index * 32,
+                   rSelectLevel.y + 42, 16, color, color, selected ? 0 : color);
     }
 }
 
-void MainMenu::escape(){
-    selectLevel = false;
+void MainMenu::escape() {
+    if (phase == Phase::ConfirmLevel) CCFG::getMusic()->StopMusic();
+    phase = Phase::Title;
 }
 
-void MainMenu::enter(){
-    if(twinkle){
-       return; 
+void MainMenu::enter() {
+    if (phase == Phase::SelectLevel) {
+        openingCue = LoadingMenu::PlayOpeningCue();
+        phase = Phase::ConfirmLevel;
+        return;
     }
-    switch(activeMenuOption){
-        case MainMenu::mainSTART:
-            if(!selectLevel){
-                selectLevel = true;
-            }else{
-                selectLevel = false;
-                CCFG::getMusic()->PlayMusic(CCFG::getMusic()->mTITLE,1);
-                CCFG::getMM()->getMainMenu()->setTwinkle(true);
-                CCFG::getMM()->getMainMenu()->updateTime();
-                //这里进入到某一个关卡当中
-                // setworld etc.
-                CCFG::getMM()->getLoadingMenu()->setLoadingType(true);
-            }
-            break;
-        case MainMenu::mainOPTIONS:
-            //选项菜单
-            CCFG::getMM()->getOptionsMenu()->setEscapeToMainMenu(true);
-            CCFG::getMM()->resetGameState(CCFG::getMM()->eOptions);
-            CCFG::getMM()->getOptionsMenu()->updateVolumeRect();
-            CCFG::getMM()->setGameState(CCFG::getMM()->eOptions);
-            break;
-        case MainMenu::mainABOUT:
-            //关于菜单
-            CCFG::getMM()->getAboutMenu()->updateTime();
-            CCFG::getMM()->setGameState(CCFG::getMM()->eAbout);
-            CCFG::getMusic()->PlayMusic(CCFG::getMusic()->mJUNGLE);
-            break;
-        default:
-            break;
-    }
-}
+    if (phase != Phase::Title) return;
 
-void MainMenu::updateTime(){
-    this->iTime = SDL_GetTicks();
-}
-
-void MainMenu::updateActiveButton(int iDir){
-    if(twinkle){
-        return; 
-    }
-    switch(iDir){
-        case iUP_ITEM:case iDOWN_ITEM:
-            if(!selectLevel){
-                Menu::updateActiveButton(iDir);
-            }
+    auto* menus = CCFG::getMM();
+    switch (activeMenuOption) {
+        case Start:
+            activeLevelID = 0;
+            phase = Phase::SelectLevel;
             break;
-        case iLEFT_ITEM:
-            if(selectLevel){
-                if(activeLevelID >0){
-                    --activeLevelID;
-                }else{
-                    activeLevelID = 7;
-                }
-            }
+        case Options: {
+            auto* options = menus->getOptionsMenu();
+            options->setEscapeToMainMenu(true);
+            menus->resetGameState(MenuManager::eOptions);
+            options->updateVolumeRect();
+            menus->setGameState(MenuManager::eOptions);
             break;
-        case iRIGHT_ITEM:
-            if(selectLevel){
-                if(activeLevelID < 7) {
-					++activeLevelID;
-				} else {
-					activeLevelID = 0;
-				}
-            }
-            break;
-    }
-}
-
-void MainMenu::Update(){
-    if(twinkle){
-        if(SDL_GetTicks() - this->iTime>=6000 && CCFG::getMM()->getGameState()==CCFG::getMM()->eMainMenu){
-            CCFG::getMM()->setGameState(CCFG::getMM()->eGameLoading);
-            CCFG::getMM()->getMainMenu()->setTwinkle(false);
-            CCFG::getMM()->getLoadingMenu()->updateTime();
-            //CCFG::getMusic()->StopMusic();
         }
+        case About:
+            menus->setGameState(MenuManager::eAbout);
+            break;
     }
-    Menu::Update();
 }
 
+void MainMenu::Update() {
+    if (phase != Phase::ConfirmLevel || SDL_GetTicks() - openingCue.startedAt < confirmationDuration) return;
+
+    auto* map = Application::getMap();
+    map->NewGame(activeLevelID + 1, 1);
+    auto* menus = CCFG::getMM();
+    auto* loading = menus->getLoadingMenu();
+    if (map->GetResult() == Map::Result::MissingAssets) {
+        loading->Begin(LoadingMenu::Mode::MissingAssets);
+    } else {
+        loading->BeginStage(openingCue);
+    }
+    phase = Phase::Title;
+    menus->setGameState(MenuManager::eGameLoading);
+}
+
+void MainMenu::updateActiveButton(int direction) {
+    if (phase == Phase::Title) {
+        Menu::updateActiveButton(direction);
+        return;
+    }
+    if (phase != Phase::SelectLevel) return;
+    if (direction == iLEFT_ITEM) {
+        activeLevelID = (activeLevelID + Map::StageCount - 1) % Map::StageCount;
+    } else if (direction == iRIGHT_ITEM) {
+        activeLevelID = (activeLevelID + 1) % Map::StageCount;
+    }
+}

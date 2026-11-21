@@ -1,31 +1,32 @@
-# pragma once 
+#ifndef LOADINGMENU_H
+#define LOADINGMENU_H
 
-# ifndef LOADINGMENU_H
-# define LOADINGMENU_H
-# include<SDL2/SDL.h>
-# include "Menu.h"
-class LoadingMenu: public Menu{
-private:
-    unsigned int iTime;
-    bool loadingType; // -- true = LOADING, false = GAME OVER
+#include "Menu.h"
 
-
-    // 设置是否遮罩
-    bool active_draw;
-    // 闪烁时间
-    unsigned int twinkleTime;
-
+class LoadingMenu : public Menu {
 public:
+    enum class Mode { Stage, GameOver, Ending, MissingAssets };
+    struct OpeningCue {
+        Uint32 startedAt;
+        bool playing;
+    };
     LoadingMenu();
-    ~LoadingMenu();
-
-    void Draw(SDL_Renderer* rR);
-    void Update();
-
-    void updateTime();
-    void setLoadingType(bool loadingType);
-    void updateActiveButton(int iDir);
+    static OpeningCue PlayOpeningCue();
+    void BeginStage(OpeningCue cue);
+    void Begin(Mode next);
+    void Draw(SDL_Renderer* renderer) override;
+    void Update() override;
+    void updateActiveButton(int direction) override;
     void enter();
+    void escape();
+
+private:
+    void ReturnToTitle();
+    Mode mode = Mode::Stage;
+    Uint32 start = 0;
+    OpeningCue openingCue{0, false};
+    bool waitingAfterCue = false;
+    Uint32 cueEndedAt = 0;
 };
 
-# endif
+#endif

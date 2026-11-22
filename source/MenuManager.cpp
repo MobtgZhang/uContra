@@ -96,7 +96,7 @@ void MenuManager::Update(){
                 case Map::Result::Cleared:
                     map->NextStage();
                     next = map->GetResult() == Map::Result::MissingAssets ?
-                        LoadingMenu::Mode::MissingAssets : LoadingMenu::Mode::Stage;
+                        LoadingMenu::Mode::MissingAssets : LoadingMenu::Mode::NextStage;
                     break;
                 case Map::Result::Lost: next = LoadingMenu::Mode::GameOver; break;
                 case Map::Result::Finished: next = LoadingMenu::Mode::Ending; break;

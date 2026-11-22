@@ -5,6 +5,7 @@
 namespace {
 constexpr Uint32 openingCueDuration = 5107;
 constexpr Uint32 openingSilenceDuration = 500;
+constexpr Uint32 silentScoreDuration = 2000;
 constexpr Uint32 scoreBlinkHalfPeriod = 250;
 }
 
@@ -16,12 +17,15 @@ LoadingMenu::LoadingMenu() {
 
 void LoadingMenu::Begin(Mode next) {
     mode = next;
+    start = SDL_GetTicks();
     activeMenuOption = next == Mode::GameOver && Application::getMap()->Continues() == 0 ? 1 : 0;
     switch (next) {
         case Mode::Stage: BeginStage(PlayOpeningCue()); break;
+        case Mode::NextStage:
+        case Mode::Continue: CCFG::getMusic()->StopAudio(); break;
         case Mode::GameOver: CCFG::getMusic()->PlayMusic(Music::mGAMEOVER, 0); break;
         case Mode::Ending: CCFG::getMusic()->PlayMusic(Music::mSANDINISTA, 0); break;
-        case Mode::MissingAssets: CCFG::getMusic()->StopMusic(); break;
+        case Mode::MissingAssets: CCFG::getMusic()->StopAudio(); break;
     }
 }
 
@@ -38,17 +42,26 @@ void LoadingMenu::BeginStage(OpeningCue cue) {
 }
 
 void LoadingMenu::Update() {
-    if (mode != Mode::Stage) return;
     const Uint32 now = SDL_GetTicks();
-    if (!waitingAfterCue) {
-        if (openingCue.playing ? CCFG::getMusic()->IsMusicPlaying() :
-                                 now - openingCue.startedAt < openingCueDuration) return;
-        cueEndedAt = openingCue.playing ? now : openingCue.startedAt + openingCueDuration;
-        waitingAfterCue = true;
+    if (mode == Mode::NextStage || mode == Mode::Continue) {
+        if (now - start < silentScoreDuration) return;
+    } else if (mode == Mode::Stage) {
+        if (!waitingAfterCue) {
+            if (openingCue.playing ? CCFG::getMusic()->IsMusicPlaying() :
+                                     now - openingCue.startedAt < openingCueDuration) return;
+            cueEndedAt = openingCue.playing ? now : openingCue.startedAt + openingCueDuration;
+            waitingAfterCue = true;
+        }
+        if (now - cueEndedAt < openingSilenceDuration) return;
+    } else {
+        return;
     }
-    if (now - cueEndedAt < openingSilenceDuration) return;
     Application::getMap()->PlayStageMusic();
     CCFG::getMM()->setGameState(MenuManager::eGame);
+}
+
+bool LoadingMenu::IsScorePage() const {
+    return mode == Mode::Stage || mode == Mode::NextStage || mode == Mode::Continue;
 }
 
 void LoadingMenu::Draw(SDL_Renderer* display) {
@@ -56,12 +69,14 @@ void LoadingMenu::Draw(SDL_Renderer* display) {
     auto* text = CCFG::getText();
     text->Draw(display, "1P", 85, 84);
     text->Draw(display, "HI", 580, 84);
-    if (mode != Mode::Stage || ((SDL_GetTicks() - start) / scoreBlinkHalfPeriod) % 2 == 0) {
+    if (!IsScorePage() || ((SDL_GetTicks() - start) / scoreBlinkHalfPeriod) % 2 == 0) {
         text->Draw(display, std::to_string(map->Score()), 133, 84);
         text->Draw(display, std::to_string(map->HighScore()), 628, 84);
     }
     switch (mode) {
         case Mode::Stage:
+        case Mode::NextStage:
+        case Mode::Continue:
             text->Draw(display, "REST " + std::to_string(map->Lives()), 85, 115);
             text->DrawCenterX(display, "STAGE " + std::to_string(map->StageNumber()), 219);
             text->DrawCenterX(display, map->StageName(), 255);
@@ -90,10 +105,10 @@ void LoadingMenu::updateActiveButton(int direction) {
 
 void LoadingMenu::enter() {
     auto* map = Application::getMap();
-    if (mode == Mode::Stage) return;
+    if (IsScorePage()) return;
     if (mode == Mode::GameOver && activeMenuOption == 0 && map->Continues() > 0) {
         map->Continue();
-        Begin(map->GetResult() == Map::Result::MissingAssets ? Mode::MissingAssets : Mode::Stage);
+        Begin(map->GetResult() == Map::Result::MissingAssets ? Mode::MissingAssets : Mode::Continue);
     } else {
         ReturnToTitle();
     }

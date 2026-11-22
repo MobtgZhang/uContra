@@ -5,7 +5,7 @@
 
 class LoadingMenu : public Menu {
 public:
-    enum class Mode { Stage, GameOver, Ending, MissingAssets };
+    enum class Mode { Stage, NextStage, Continue, GameOver, Ending, MissingAssets };
     struct OpeningCue {
         Uint32 startedAt;
         bool playing;
@@ -21,6 +21,7 @@ public:
     void escape();
 
 private:
+    bool IsScorePage() const;
     void ReturnToTitle();
     Mode mode = Mode::Stage;
     Uint32 start = 0;

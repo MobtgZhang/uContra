@@ -9,7 +9,7 @@
 
 class Stage {
 public:
-    enum { ViewWidth = 256, ViewHeight = 224, TileSize = 8 };
+    enum { ViewWidth = 256, ViewHeight = 224, FrameHeight = 240, TileSize = 8 };
     struct Spawn {
         int worldX, worldY, type, attribute, room, trigger;
     };
@@ -21,6 +21,7 @@ public:
 
     bool Load(SDL_Renderer* renderer, int number);
     void Draw(SDL_Renderer* renderer, int cameraX, int cameraY) const;
+    void DrawDamagedExit(SDL_Renderer* renderer, int centerX, int centerY) const;
     void DrawArea(SDL_Renderer* renderer, const SDL_Rect& area, int destX, int destY) const;
     char TileAt(int worldX, int worldY) const;
     bool IsBase() const { return number == 2 || number == 4; }
@@ -42,10 +43,18 @@ private:
     std::vector<Spawn> spawns;
     std::vector<int> soldierProfiles;
     std::vector<Chunk> chunks;
+    SDL_Texture* damagedExit = nullptr;
+    SDL_Rect damagedExitSize{};
 };
 
 class StageSprites {
 public:
+    struct RiflemanPose {
+        int frame;
+        SDL_Point anchor;
+        SDL_Point muzzle;
+    };
+
     StageSprites() = default;
     ~StageSprites();
     StageSprites(const StageSprites&) = delete;
@@ -55,7 +64,7 @@ public:
     void Draw(SDL_Renderer* renderer, int frame, int centerX, int anchorY,
               bool flip = false, bool second = false, bool feet = false, bool flipY = false) const;
     void DrawRunner(SDL_Renderer* renderer, int centerX, int feetY, int direction, int stride) const;
-    void DrawRifleman(SDL_Renderer* renderer, int centerX, int feetY, int direction, int aim) const;
+    RiflemanPose GetRiflemanPose(int centerX, int bottomY, int direction, int aim, int coverFrame) const;
 
 private:
     SDL_Texture* texture = nullptr;

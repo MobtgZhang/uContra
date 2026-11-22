@@ -13,6 +13,8 @@ Stage::~Stage() {
 }
 
 void Stage::Clear() {
+    SDL_DestroyTexture(damagedExit);
+    damagedExit = nullptr;
     for (const auto& chunk : chunks) {
         SDL_DestroyTexture(chunk.texture);
     }
@@ -93,11 +95,23 @@ bool Stage::Load(SDL_Renderer* renderer, int stageNumber) {
         }
     }
     SDL_FreeSurface(background);
+    if (number == 1) {
+        damagedExit = IMG_LoadTexture(renderer, (filename + "-exit.png").c_str());
+        if (damagedExit) SDL_QueryTexture(damagedExit, nullptr, nullptr, &damagedExitSize.w, &damagedExitSize.h);
+    }
     return true;
 }
 
 void Stage::Draw(SDL_Renderer* renderer, int cameraX, int cameraY) const {
     DrawArea(renderer, {cameraX, cameraY, ViewWidth, ViewHeight}, 0, 0);
+}
+
+void Stage::DrawDamagedExit(SDL_Renderer* renderer, int centerX, int centerY) const {
+    if (!damagedExit) return;
+    SDL_Rect destination = damagedExitSize;
+    destination.x = centerX - destination.w / 2;
+    destination.y = centerY - destination.h / 2;
+    SDL_RenderCopy(renderer, damagedExit, nullptr, &destination);
 }
 
 void Stage::DrawArea(SDL_Renderer* renderer, const SDL_Rect& area, int destX, int destY) const {
@@ -167,8 +181,22 @@ void StageSprites::DrawRunner(SDL_Renderer* renderer, int centerX, int feetY, in
     Draw(renderer, frame, centerX, feetY, direction > 0, false, true);
 }
 
-void StageSprites::DrawRifleman(SDL_Renderer* renderer, int centerX, int feetY, int direction, int aim) const {
-    const int frame = !frames.count("43") || aim < 0 ? 0x42 : aim > 0 ? 0x41 : 0x43;
-    const int offset = frame == 0x42 ? 1 : 4;
-    Draw(renderer, frame, centerX + direction * offset, feetY, direction > 0, false, true);
+StageSprites::RiflemanPose StageSprites::GetRiflemanPose(int centerX, int bottomY, int direction, int aim, int coverFrame) const {
+    struct PoseFrame {
+        int frame, offset;
+        SDL_Point muzzlePixel;
+        const char* key;
+    };
+    static const PoseFrame poses[] = {
+        {0x41, 4, {1, 17}, "41"}, {0x42, 1, {1, 1}, "42"}, {0x43, 4, {1, 4}, "43"},
+        {0x44, 0, {0, 0}, "44"}, {0x45, 3, {1, 8}, "45"}, {0x46, 3, {1, 4}, "46"}
+    };
+    const int frame = coverFrame ? coverFrame : !frames.count("43") || aim < 0 ? 0x42 : aim > 0 ? 0x41 : 0x43;
+    const auto& pose = poses[frame - 0x41];
+    const SDL_Point anchor{centerX + direction * pose.offset, bottomY};
+    const auto found = frames.find(pose.key);
+    if (found == frames.end()) return {frame, anchor, {centerX, bottomY}};
+    const auto& bounds = found->second;
+    const int muzzleX = direction > 0 ? bounds.w - 1 - pose.muzzlePixel.x : pose.muzzlePixel.x;
+    return {frame, anchor, {anchor.x - bounds.w / 2 + muzzleX, anchor.y - bounds.h + pose.muzzlePixel.y}};
 }

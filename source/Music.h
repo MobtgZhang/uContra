@@ -74,9 +74,12 @@ public:
     bool PlayMusic(eMusic musicID,int loops=-1);
     bool IsMusicPlaying() const;
     void StopMusic();
+    void StopAudio();
     
 
     void PauseMusic();
+    void StartAlarm();
+    void StopAlarm();
     void PlayChunk(eChunk chunkID);
 
     Mix_Music* loadMusic(std::string fileName);

@@ -1,6 +1,10 @@
 # include "Music.h"
 # include <SDL2/SDL_log.h>
 
+namespace {
+constexpr int AlarmChannel = 0;
+}
+
 Music::Music(){
     //初始化SDL2音效
     audioReady = Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048) == 0;
@@ -8,6 +12,7 @@ Music::Music(){
         SDL_Log("Audio disabled: %s", Mix_GetError());
         return;
     }
+    Mix_ReserveChannels(AlarmChannel + 1);
     //加载Music文件
 
     vMusic.push_back(loadMusic("01 Contra (Title)"));
@@ -88,7 +93,10 @@ Music::~Music(){
 
 void Music::setVolume(int iVolume){
     this->iVolume = iVolume;
-    if (audioReady) Mix_VolumeMusic(iVolume);
+    if (audioReady) {
+        Mix_VolumeMusic(iVolume);
+        Mix_Volume(AlarmChannel, iVolume);
+    }
 }
 
 int Music::getVolume(){
@@ -120,17 +128,34 @@ void Music::changeMusic(){
 
 void Music::PauseMusic(){
     if (!audioReady) return;
-    if(Mix_PausedMusic()){
+    if(Mix_PausedMusic() || Mix_Paused(AlarmChannel)){
         Mix_ResumeMusic();
+        Mix_Resume(AlarmChannel);
     }else{
         Mix_PauseMusic();
+        if (Mix_Playing(AlarmChannel)) Mix_Pause(AlarmChannel);
     }
 }
 
+void Music::StartAlarm() {
+    if (audioReady && vChunk[cALARM] && !Mix_Playing(AlarmChannel)) {
+        Mix_PlayChannel(AlarmChannel, vChunk[cALARM], -1);
+    }
+}
+
+void Music::StopAlarm() {
+    if (audioReady) Mix_HaltChannel(AlarmChannel);
+}
 
 void Music::StopMusic(){
+    StopAlarm();
     if (audioReady) Mix_HaltMusic();
     currentMusic = mNOTHING;
+}
+
+void Music::StopAudio() {
+    StopMusic();
+    if (audioReady) Mix_HaltChannel(-1);
 }
 
 void Music::PlayChunk(eChunk chunkID){

@@ -14,6 +14,7 @@ int CCFG::keyIDLeft = 0;
 int CCFG::keyIDRight = 0;
 
 bool CCFG::canMoveBackward = true;
+int CCFG::startingLives = CCFG::MinLives;
 // 一些类的定义
 MenuManager* CCFG::oMM = nullptr;
 CImg* CCFG::tLogo = nullptr;

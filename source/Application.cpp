@@ -87,14 +87,17 @@ void Application::Input() {
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_QUIT) {
             quitGame = true;
-        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST &&
-                   menu->getGameState() == MenuManager::eGame) {
-            menu->escape();
+        } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) {
+            if (menu->getGameState() == MenuManager::eGame) menu->escape();
+            if (menu->getGameState() == MenuManager::eOptions) menu->getOptionsMenu()->StopLivesIncrease();
+        } else if (event.type == SDL_KEYUP && menu->getGameState() == MenuManager::eOptions) {
+            menu->getOptionsMenu()->StopLivesIncrease(event.key.keysym.scancode);
         } else if (event.type == SDL_KEYDOWN && !event.key.repeat) {
             const SDL_Keycode key = event.key.keysym.sym;
             if (menu->getGameState() == MenuManager::eGame) {
                 if (key == SDLK_ESCAPE || key == SDLK_RETURN || key == SDLK_KP_ENTER) menu->escape();
-            } else {
+            } else if (menu->getGameState() != MenuManager::eOptions ||
+                       !menu->getOptionsMenu()->HandleLivesIncrease(event.key.keysym)) {
                 InputMenu(key);
             }
         }

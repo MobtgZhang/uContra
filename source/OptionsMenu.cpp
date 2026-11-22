@@ -2,6 +2,12 @@
 # include "CFG.h"
 # include "Application.h"
 
+#include <algorithm>
+
+namespace {
+constexpr Uint32 LivesRepeatInterval = 200;
+}
+
 OptionsMenu::OptionsMenu(){
     rRect.x = 32;
 	rRect.y = 48;
@@ -18,7 +24,8 @@ OptionsMenu::OptionsMenu(){
 	this->lMO.push_back(new MenuOption("X", 73, 233));
 	this->lMO.push_back(new MenuOption("Y", 73, 257));
 	this->lMO.push_back(new MenuOption("CAN MOVE BACKWARD", 73, 281));
-	this->lMO.push_back(new MenuOption("MAIN MENU", 73, 305));
+	this->lMO.push_back(new MenuOption("LIVES", 73, 305));
+	this->lMO.push_back(new MenuOption("MAIN MENU", 73, 329));
 
     this->numOfMenuOptions = lMO.size();
 
@@ -48,7 +55,27 @@ OptionsMenu::~OptionsMenu(){
 }
 
 void OptionsMenu::setEscapeToMainMenu(bool escapeToMainMenu){
+    StopLivesIncrease();
     this->escapeToMainMenu = escapeToMainMenu;
+}
+
+bool OptionsMenu::HandleLivesIncrease(const SDL_Keysym& key) {
+    if (inSetKey || activeMenuOption != optionLIVES) return false;
+    const bool plus = key.sym == SDLK_PLUS || key.sym == SDLK_KP_PLUS ||
+                      (key.sym == SDLK_EQUALS && (key.mod & KMOD_SHIFT));
+    if (!plus) return false;
+
+    int& lives = CCFG::startingLives;
+    lives = lives == CCFG::MaxLives ? CCFG::MinLives : lives + 1;
+    livesRepeatKey = key.scancode;
+    lastLivesIncrease = SDL_GetTicks();
+    return true;
+}
+
+void OptionsMenu::StopLivesIncrease(SDL_Scancode key) {
+    if (key == SDL_SCANCODE_UNKNOWN || key == livesRepeatKey) {
+        livesRepeatKey = SDL_SCANCODE_UNKNOWN;
+    }
 }
 
 void OptionsMenu::updateVolumeRect(){
@@ -101,10 +128,12 @@ void OptionsMenu::updateActiveButton(int iDir){
 	}
 	if(!inSetKey){
 		Menu::updateActiveButton(iDir);
+		if (activeMenuOption != optionLIVES) StopLivesIncrease();
 	}
 }
 
 void OptionsMenu::escape(){
+    StopLivesIncrease();
     if(inSetKey){
         resetSetKey = true;
     }else{
@@ -132,7 +161,7 @@ void OptionsMenu::Draw(SDL_Renderer* rR){
 	rRect.h += 2;
 	rRect.w += 2;
 
-	for(unsigned int i = 0; i < lMO.size(); i++) {
+	for(int i = 0; i < numOfMenuOptions; i++) {
 		if(i == activeMenuOption) {
 			CCFG::getText()->Draw(rR, lMO[i]->getText(), lMO[i]->getXPos(), lMO[i]->getYPos(), 16, 255, 255, 255);
 		} else {
@@ -167,6 +196,10 @@ void OptionsMenu::Draw(SDL_Renderer* rR){
 
 	CCFG::getText()->Draw(rR, CCFG::canMoveBackward ? "TRUE" : "FALSE", 357, 281, 16, activeMenuOption == optionMOVEBACKWARD ? 255 : 90, activeMenuOption == optionMOVEBACKWARD ? 255 : 90, activeMenuOption == optionMOVEBACKWARD ? 255 : 90);
 
+	const int lives = CCFG::startingLives;
+	const int livesColor = activeMenuOption == optionLIVES ? 255 : 90;
+	CCFG::getText()->Draw(rR, (lives < 10 ? "0" : "") + std::to_string(lives), 185,
+	                     lMO[optionLIVES]->getYPos(), 16, livesColor, livesColor, livesColor);
 
 	if(inSetKey) {
 		SDL_SetRenderDrawColor(rR, 20, 20, 20, 245);
@@ -197,6 +230,13 @@ void OptionsMenu::Update(){
 		inSetKey = false;
 		resetSetKey = false;
 	}
+	if (livesRepeatKey == SDL_SCANCODE_UNKNOWN || activeMenuOption != optionLIVES ||
+	    CCFG::startingLives == CCFG::MaxLives) return;
+
+	const Uint32 repeats = (SDL_GetTicks() - lastLivesIncrease) / LivesRepeatInterval;
+	const int increases = std::min(repeats, Uint32(CCFG::MaxLives - CCFG::startingLives));
+	CCFG::startingLives += increases;
+	lastLivesIncrease += repeats * LivesRepeatInterval;
 }
 
 void OptionsMenu::setKey(int keyID){

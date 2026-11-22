@@ -14,6 +14,8 @@ private:
     bool inSetKey,resetSetKey;
 
     bool escapeToMainMenu;
+    SDL_Scancode livesRepeatKey = SDL_SCANCODE_UNKNOWN;
+    Uint32 lastLivesIncrease = 0;
 public:
     enum OptionMenuState{
         optionVOLUME,
@@ -26,6 +28,7 @@ public:
         optionX,
         optionY,
         optionMOVEBACKWARD,
+        optionLIVES,
         optionMAINMENU
     };
     OptionsMenu();
@@ -34,6 +37,8 @@ public:
     void escape();
     void enter();
     void setKey(int keyID);
+    bool HandleLivesIncrease(const SDL_Keysym& key);
+    void StopLivesIncrease(SDL_Scancode key = SDL_SCANCODE_UNKNOWN);
     bool IsBindingKey() const { return inSetKey; }
     void setEscapeToMainMenu(bool escapeToMainMenu);
     void updateVolumeRect();

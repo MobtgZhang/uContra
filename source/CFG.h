@@ -30,6 +30,9 @@ public:
     static int keyIDA,keyIDB,keyIDX,keyIDY;
     // 设置地图是否可以后退
     static bool canMoveBackward;
+    static constexpr int MinLives = 3;
+    static constexpr int MaxLives = 99;
+    static int startingLives;
     // 获取keyID 对应的字符串
     static std::string getKeyString(int keyID);
 };
